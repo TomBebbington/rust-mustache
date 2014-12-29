@@ -17,7 +17,7 @@ impl<'a> Encoder<'a> {
 pub type EncoderResult = Result<(), Error>;
 
 impl<'a> serialize::Encoder<Error> for Encoder<'a> {
-    fn emit_nil(&mut self) -> EncoderResult { Err(Error::UnsupportedType) }
+    fn emit_nil(&mut self) -> EncoderResult { self.emit_str("") }
 
     fn emit_uint(&mut self, v: uint) -> EncoderResult { self.emit_str(v.to_string().as_slice()) }
     fn emit_u64(&mut self, v: u64) -> EncoderResult   { self.emit_str(v.to_string().as_slice()) }
@@ -116,7 +116,7 @@ impl<'a> serialize::Encoder<Error> for Encoder<'a> {
     }
 
     fn emit_option_none(&mut self) -> EncoderResult {
-        Ok(()) // Skip
+        self.emit_nil()
     }
 
     fn emit_option_some<F>(&mut self, f: F) -> EncoderResult

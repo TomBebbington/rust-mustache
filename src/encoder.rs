@@ -42,29 +42,29 @@ impl<'a> serialize::Encoder<Error> for Encoder<'a> {
     }
     fn emit_str(&mut self, v: &str) -> EncoderResult { self.data.push(Data::Str(v.to_string())); Ok(()) }
 
-    fn emit_enum<F>(&mut self, _name: &str, _f: F) -> EncoderResult
+    fn emit_enum<F>(&mut self, name: &str, _v: F) -> EncoderResult
             where F : FnOnce(&mut Encoder<'a>) -> EncoderResult {
-        Err(Error::UnsupportedType)
+        self.emit_str(name)
     }
 
-    fn emit_enum_variant<F>(&mut self, _name: &str, _id: uint, _len: uint, _f: F) -> EncoderResult
+    fn emit_enum_variant<F>(&mut self, name: &str, _id: uint, _len: uint, _f: F) -> EncoderResult
             where F : FnOnce(&mut Encoder<'a>) -> EncoderResult {
-        Err(Error::UnsupportedType)
+        self.emit_str(name)
     }
 
     fn emit_enum_variant_arg<F>(&mut self, _a_idx: uint, _f: F) -> EncoderResult
             where F : FnOnce(&mut Encoder<'a>) -> EncoderResult {
-        Err(Error::UnsupportedType)
+        Ok(()) // Ignore
     }
 
     fn emit_enum_struct_variant<F>(&mut self, _v_name: &str, _v_id: uint, _len: uint, _f: F)
             -> EncoderResult where F : FnOnce(&mut Encoder<'a>) -> EncoderResult {
-        Err(Error::UnsupportedType)
+        Ok(()) // Ignore
     }
 
     fn emit_enum_struct_variant_field<F>(&mut self, _f_name: &str, _f_idx: uint, _f: F)
             -> EncoderResult where F : FnOnce(&mut Encoder<'a>) -> EncoderResult {
-        Err(Error::UnsupportedType)
+        Ok(()) // Ignore
     }
 
     fn emit_struct<F>(&mut self, _name: &str, _len: uint, f: F) -> EncoderResult
@@ -110,18 +110,18 @@ impl<'a> serialize::Encoder<Error> for Encoder<'a> {
     }
 
     // Specialized types:
-    fn emit_option<F>(&mut self, _f: F) -> EncoderResult
+    fn emit_option<F>(&mut self, f: F) -> EncoderResult
             where F : FnOnce(&mut Encoder<'a>) -> EncoderResult {
-        Err(Error::UnsupportedType)
+        f(self)
     }
 
     fn emit_option_none(&mut self) -> EncoderResult {
-        Err(Error::UnsupportedType)
+        Ok(()) // Skip
     }
 
-    fn emit_option_some<F>(&mut self, _f: F) -> EncoderResult
+    fn emit_option_some<F>(&mut self, f: F) -> EncoderResult
             where F : FnOnce(&mut Encoder<'a>) -> EncoderResult {
-        Err(Error::UnsupportedType)
+        f(self)
     }
 
     fn emit_seq<F>(&mut self, _len: uint, f: F) -> EncoderResult

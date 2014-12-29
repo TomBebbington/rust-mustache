@@ -21,7 +21,7 @@ The different Mustache tags are documented at [mustache(5)][4].
 Install it through Cargo!
 
 ```toml
-[dependencies.rust-mustache]
+[dependencies.mustache]
 git = "https://github.com/erickt/rust-mustache"
 ```
 

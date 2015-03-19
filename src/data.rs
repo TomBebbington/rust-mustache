@@ -2,17 +2,17 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 
-pub enum Data<'a> {
+pub enum Data {
     Str(String),
     Bool(bool),
-    Vec(Vec<Data<'a>>),
-    Map(HashMap<String, Data<'a>>),
-    Fun(RefCell<|String|: 'a -> String>),
+    Vec(Vec<Data>),
+    Map(HashMap<String, Data>),
+    Fun(RefCell<Box<Fn(String) -> String>>),
 }
 
-impl<'a> PartialEq for Data<'a> {
+impl PartialEq for Data {
     #[inline]
-    fn eq(&self, other: &Data<'a>) -> bool {
+    fn eq(&self, other: &Data) -> bool {
         match (self, other) {
             (&Data::Str(ref v0), &Data::Str(ref v1)) => v0 == v1,
             (&Data::Bool(ref v0), &Data::Bool(ref v1)) => v0 == v1,
@@ -24,13 +24,13 @@ impl<'a> PartialEq for Data<'a> {
     }
 }
 
-impl<'a> fmt::Show for Data<'a> {
+impl fmt::Debug for Data {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Data::Str(ref v) => write!(f, "Str({})", v),
             Data::Bool(v) => write!(f, "Bool({})", v),
-            Data::Vec(ref v) => write!(f, "Vec({})", v),
-            Data::Map(ref v) => write!(f, "Map({})", v),
+            Data::Vec(ref v) => write!(f, "Vec({:?})", v),
+            Data::Map(ref v) => write!(f, "Map({:?})", v),
             Data::Fun(_) => write!(f, "Fun(...)"),
         }
     }

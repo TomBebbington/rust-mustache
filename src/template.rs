@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::io::MemWriter;
+use std::fs::File;
 use std::mem;
 use std::str;
 use serialize::Encodable;
@@ -15,7 +15,7 @@ use parser;
 use context::Context;
 
 /// `Template` represents a compiled mustache file.
-#[deriving(Show, Clone)]
+#[derive(Debug, Clone)]
 pub struct Template {
     ctx: Context,
     tokens: Vec<Token>,
@@ -35,7 +35,7 @@ Vec<Token>>) -> Template {
 
 impl Template {
     /// Renders the template with the `Encodable` data.
-    pub fn render<'a, W: Writer, T: Encodable<Encoder<'a>, Error>>(
+    pub fn render<'a, W: Writer, T: Encodable>(
         &self,
         wr: &mut W,
         data: &T
@@ -45,7 +45,7 @@ impl Template {
     }
 
     /// Renders the template with the `Data`.
-    pub fn render_data<'a, W: Writer>(&self, wr: &mut W, data: &Data<'a>) {
+    pub fn render_data<W: Writer>(&self, wr: &mut W, data: &Data) {
         let mut render_ctx = RenderContext::new(self);
         let mut stack = vec!(data);
 
@@ -72,7 +72,7 @@ impl<'a> RenderContext<'a> {
     fn render<'b, W: Writer>(
         &mut self,
         wr: &mut W,
-        stack: &mut Vec<&Data<'b>>,
+        stack: &mut Vec<&Data>,
         tokens: &[Token]
     ) {
         for token in tokens.iter() {
@@ -83,7 +83,7 @@ impl<'a> RenderContext<'a> {
     fn render_token<'b, W: Writer>(
         &mut self,
         wr: &mut W,
-        stack: &mut Vec<&Data<'b>>,
+        stack: &mut Vec<&Data>,
         token: &Token
     ) {
         match *token {
@@ -155,17 +155,16 @@ impl<'a> RenderContext<'a> {
     fn render_etag<'b, W: Writer>(
         &mut self,
         wr: &mut W,
-        stack: &mut Vec<&Data<'b>>,
+        stack: &mut Vec<&Data>,
         path: &[String]
     ) {
-        let mut mem_wr = MemWriter::new();
+        let mut bytes = Vec::new();
 
-        self.render_utag(&mut mem_wr, stack, path);
+        self.render_utag(&mut bytes, stack, path);
 
-        let bytes = mem_wr.into_inner();
-        let s = str::from_utf8(bytes.as_slice()).unwrap().to_string();
+        let s = str::from_utf8(&bytes).unwrap().to_string();
 
-        for c in s.as_slice().chars() {
+        for c in s.chars() {
             match c {
                 '<'  => { wr.write_str("&lt;").unwrap(); }
                 '>'  => { wr.write_str("&gt;").unwrap(); }
@@ -180,26 +179,26 @@ impl<'a> RenderContext<'a> {
     fn render_utag<'b, W: Writer>(
         &mut self,
         wr: &mut W,
-        stack: &mut Vec<&Data<'b>>,
+        stack: &mut Vec<&Data>,
         path: &[String]
     ) {
         match self.find(path, stack) {
             None => { }
             Some(value) => {
-                wr.write_str(self.indent.as_slice()).unwrap();
+                wr.write_str(&self.indent).unwrap();
 
                 match *value {
                     Data::Str(ref value) => {
-                        wr.write_str(value.as_slice()).unwrap();
+                        wr.write_str(&value).unwrap();
                     }
 
                     // etags and utags use the default delimiter.
                     Data::Fun(ref f) => {
-                        let tokens = self.render_fun("", "{{", "}}", f);
-                        self.render(wr, stack, tokens.as_slice());
+                        let tokens = self.render_fun("", "{{", "}}", &**f.borrow());
+                        self.render(wr, stack, &tokens);
                     }
 
-                    ref value => { panic!("unexpected value {}", value); }
+                    ref value => { panic!("unexpected value {:?}", value); }
                 }
             }
         };
@@ -208,7 +207,7 @@ impl<'a> RenderContext<'a> {
     fn render_inverted_section<'b, W: Writer>(
         &mut self,
         wr: &mut W,
-        stack: &mut Vec<&Data<'b>>,
+        stack: &mut Vec<&Data>,
         path: &[String],
         children: &[Token]
     ) {
@@ -225,7 +224,7 @@ impl<'a> RenderContext<'a> {
     fn render_section<'b, W: Writer>(
         &mut self,
         wr: &mut W,
-        stack: &mut Vec<&Data<'b>>,
+        stack: &mut Vec<&Data>,
         path: &[String],
         children: &[Token],
         src: &str,
@@ -253,10 +252,10 @@ impl<'a> RenderContext<'a> {
                         stack.pop();
                     }
                     Data::Fun(ref f) => {
-                        let tokens = self.render_fun(src, otag, ctag, f);
-                        self.render(wr, stack, tokens.as_slice())
+                        let tokens = self.render_fun(src, otag, ctag, &**f.borrow());
+                        self.render(wr, stack, &tokens)
                     }
-                    _ => { panic!("unexpected value {}", value) }
+                    _ => { panic!("unexpected value {:?}", value) }
                 }
             }
         }
@@ -265,14 +264,14 @@ impl<'a> RenderContext<'a> {
     fn render_partial<'b, W: Writer>(
         &mut self,
         wr: &mut W,
-        stack: &mut Vec<&Data<'b>>,
+        stack: &mut Vec<&Data>,
         name: &str,
         indent: &str
     ) {
         match self.template.partials.get(name) {
             None => { }
             Some(ref tokens) => {
-                let mut indent = self.indent + indent;
+                let mut indent = format!("{}{}", self.indent, indent);
 
                 mem::swap(&mut self.indent, &mut indent);
                 self.render(wr, stack, tokens.as_slice());
@@ -286,9 +285,8 @@ impl<'a> RenderContext<'a> {
         src: &str,
         otag: &str,
         ctag: &str,
-        f: &RefCell<|String| -> String>
+        f: &Fn(String) -> String
     ) -> Vec<parser::Token> {
-        let f = &mut *f.borrow_mut();
         let src = (*f)(src.to_string());
 
         let compiler = Compiler::new_with(
@@ -302,7 +300,7 @@ impl<'a> RenderContext<'a> {
         tokens
     }
 
-    fn find<'b, 'c>(&self, path: &[String], stack: &mut Vec<&'c Data<'b>>) -> Option<&'c Data<'b>> {
+    fn find<'b, 'c>(&self, path: &[String], stack: &mut Vec<&'c Data>) -> Option<&'c Data> {
         // If we have an empty path, we just want the top value in our stack.
         if path.is_empty() {
             match stack.last() {
@@ -325,7 +323,7 @@ impl<'a> RenderContext<'a> {
                         None => { }
                     }
                 }
-                _ => { panic!("expect map: {}", path) }
+                _ => { panic!("expect map: {:?}", path) }
             }
         }
 
@@ -368,7 +366,7 @@ mod tests {
 
     use super::super::compile_str;
 
-    #[deriving(Encodable)]
+    #[derive(Encodable)]
     struct Name { name: String }
 
     fn render<'a, 'b, T: Encodable<Encoder<'b>, Error>>(
@@ -408,7 +406,7 @@ mod tests {
         assert_eq!(render("hello {{{name}}}", &ctx), Ok("hello world".to_string()));
     }
 
-    fn render_data<'a>(template: &Template, data: &Data<'a>) -> String {
+    fn render_data<'a>(template: &Template, data: &Data) -> String {
         let mut wr = Vec::new();
         template.render_data(&mut wr, data);
         String::from_utf8(wr).unwrap().to_string()
@@ -585,13 +583,13 @@ mod tests {
         let result = render_data(&template, &data);
 
         if result != expected {
-            println!("desc:     {}", test.get("desc").unwrap().to_string());
-            println!("context:  {}", test.get("data").unwrap().to_string());
-            println!("=>");
-            println!("template: {}", template);
-            println!("expected: {}", expected);
-            println!("actual:   {}", result);
-            println!("");
+            prisizeln!("desc:     {}", test.get("desc").unwrap().to_string());
+            prisizeln!("context:  {}", test.get("data").unwrap().to_string());
+            prisizeln!("=>");
+            prisizeln!("template: {}", template);
+            prisizeln!("expected: {}", expected);
+            prisizeln!("actual:   {}", result);
+            prisizeln!("");
         }
         assert_eq!(result, expected);
     }
@@ -627,8 +625,8 @@ mod tests {
     }
 
     #[test]
-    fn test_spec_interpolation() {
-        run_tests("spec/specs/interpolation.json");
+    fn test_spec_isizeerpolation() {
+        run_tests("spec/specs/isizeerpolation.json");
     }
 
     #[test]

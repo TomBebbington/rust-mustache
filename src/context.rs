@@ -1,20 +1,21 @@
 use std::fmt;
-use std::io::File;
+use std::fs::File;
+use std::io::Read;
 use std::str;
 
 use compiler::Compiler;
 use error::Error;
-use template::{mod, Template};
+use template::{self, Template};
 
 /// Represents the shared metadata needed to compile and render a mustache
 /// template.
-#[deriving(Clone)]
+#[derive(Clone)]
 pub struct Context {
     pub template_path: Path,
     pub template_extension: String,
 }
 
-impl fmt::Show for Context {
+impl fmt::Debug for Context {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Context {{ template_path: {}, template_extension: {} }}",
                self.template_path.display(),
@@ -32,7 +33,7 @@ impl Context {
     }
 
     /// Compiles a template from a string
-    pub fn compile<IT: Iterator<char>>(&self, reader: IT) -> Template {
+    pub fn compile<IT: Iterator<Item=char>>(&self, reader: IT) -> Template {
         let compiler = Compiler::new(self.clone(), reader);
         let (tokens, partials) = compiler.compile();
 
@@ -45,14 +46,9 @@ impl Context {
         // written. For now we'll just read the file and treat it as UTF-8file.
         let mut path = self.template_path.join(path);
         path.set_extension(self.template_extension.clone());
-
-        let s = try!(File::open(&path).read_to_end());
-
-        // TODO: maybe allow UTF-16 as well?
-        let template = match str::from_utf8(s.as_slice()) {
-            Some(string) => string,
-            None => { return Err(Error::InvalidStr); }
-        };
+        let mut file = try!(File::open(&path));
+        let mut template = String::new();
+        try!(file.read_to_string(&mut template));
 
         Ok(self.compile(template.chars()))
     }

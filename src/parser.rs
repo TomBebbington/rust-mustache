@@ -1,11 +1,12 @@
 use std::mem;
 
+use unicode::str::UnicodeStr;
 use self::Token::{Text, ETag, UTag, Section, IncompleteSection, Partial};
 use self::TokenClass::{Normal, StandAlone, WhiteSpace};
 use self::ParserState::{TEXT, OTAG, TAG, CTAG};
 
 /// `Token` is a section of a compiled mustache string.
-#[deriving(Clone, Show)]
+#[derive(Clone, Debug)]
 pub enum Token {
     Text(String),
     ETag(Vec<String>, String),
@@ -18,7 +19,7 @@ pub enum Token {
 enum TokenClass {
     Normal,
     StandAlone,
-    WhiteSpace(String, uint),
+    WhiteSpace(String, usize),
 }
 
 /// `Parser` parses a string into a series of `Token`s.
@@ -26,22 +27,22 @@ pub struct Parser<'a, T: 'a> {
     reader: &'a mut T,
     ch: Option<char>,
     lookahead: Option<char>,
-    line: uint,
-    col: uint,
+    line: usize,
+    col: usize,
     content: String,
     state: ParserState,
     otag: String,
     ctag: String,
     otag_chars: Vec<char>,
     ctag_chars: Vec<char>,
-    tag_position: uint,
+    tag_position: usize,
     tokens: Vec<Token>,
     partials: Vec<String>,
 }
 
 enum ParserState { TEXT, OTAG, TAG, CTAG }
 
-impl<'a, T: Iterator<char>> Parser<'a, T> {
+impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
     pub fn new(reader: &'a mut T, otag: &str, ctag: &str) -> Parser<'a, T> {
         let mut parser = Parser {
             reader: reader,
@@ -213,7 +214,7 @@ impl<'a, T: Iterator<char>> Parser<'a, T> {
             let mut content = String::new();
             mem::swap(&mut content, &mut self.content);
 
-            self.tokens.push(Text(content.into_string()));
+            self.tokens.push(Text(content.to_string()));
         }
     }
 
@@ -293,8 +294,7 @@ impl<'a, T: Iterator<char>> Parser<'a, T> {
 
     fn add_tag(&mut self) {
         self.bump();
-
-        let tag = self.otag + self.content.as_slice() + self.ctag;
+        let tag = format!("{}{}{}", self.otag, self.content, self.ctag);
 
         // Move the content to avoid a copy.
         let mut content = String::new();
@@ -397,7 +397,7 @@ impl<'a, T: Iterator<char>> Parser<'a, T> {
                                         children,
                                         self.otag.to_string(),
                                         osection,
-                                        src.into_string(),
+                                        src.to_string(),
                                         tag,
                                         self.ctag.to_string()));
                                 break;
@@ -417,10 +417,14 @@ impl<'a, T: Iterator<char>> Parser<'a, T> {
             '=' => {
                 self.eat_whitespace();
 
-                if len > 2u && content.ends_with("=") {
+                if len > 2 && content.ends_with("=") {
                     let s = self.check_content(content.slice(1, len - 1));
 
-                    let pos = s.as_slice().find(UnicodeChar::is_whitespace);
+                    let pos = s.as_slice().find(|c| {
+                        let mut text = String::with_capacity(1);
+                        text.push(c);
+                        text.is_whitespace()
+                    });
                     let pos = match pos {
                       None => { panic!("invalid change delimiter tag content"); }
                       Some(pos) => { pos }
@@ -510,7 +514,7 @@ impl<'a, T: Iterator<char>> Parser<'a, T> {
     }
 
     fn check_content(&self, content: &str) -> String {
-        let trimmed = content.trim();
+        let trimmed = StrExt::trim(content);
         if trimmed.len() == 0 {
             panic!("empty tag");
         }

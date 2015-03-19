@@ -3,11 +3,10 @@
 #![crate_type = "dylib"]
 #![crate_type = "rlib"]
 
-#![feature(phase)]
-
 extern crate serialize;
+extern crate unicode;
 
-#[phase(plugin, link)]
+#[macro_use]
 extern crate log;
 
 pub use builder::{MapBuilder, VecBuilder};
@@ -27,7 +26,7 @@ mod compiler;
 mod template;
 
 /// Compiles a template from an `Iterator<char>`.
-pub fn compile_iter<T: Iterator<char>>(iter: T) -> Template {
+pub fn compile_iter<T: Iterator<Item=char>>(iter: T) -> Template {
     Context::new(Path::new(".")).compile(iter)
 }
 

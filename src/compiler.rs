@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::io::{File, FileNotFound};
+use std::io::Read;
+use std::fs::File;
 use std::str;
 
 use parser::{Parser, Token};
@@ -14,7 +15,7 @@ pub struct Compiler<T> {
     ctag: String,
 }
 
-impl<T: Iterator<char>> Compiler<T> {
+impl<T: Iterator<Item = char>> Compiler<T> {
     /// Construct a default compiler.
     pub fn new(ctx: Context, reader: T) -> Compiler<T> {
         Compiler {
@@ -52,40 +53,34 @@ impl<T: Iterator<char>> Compiler<T> {
 
         // Compile the partials if we haven't done so already.
         for name in partials.into_iter() {
-            let path = self.ctx.template_path.join(name + "." + self.ctx.template_extension);
+            let path = self.ctx.template_path.join(&format!("{}.{}", name, self.ctx.template_extension));
 
             if !self.partials.contains_key(&name) {
                 // Insert a placeholder so we don't recurse off to infinity.
                 self.partials.insert(name.to_string(), Vec::new());
 
-                match File::open(&path).read_to_end() {
-                    Ok(contents) => {
-                        let string = match str::from_utf8(contents.as_slice()) {
-                            Some(string) => string.to_string(),
-                            None => { panic!("Failed to parse file as UTF-8"); }
-                        };
+                let mut string = String::new();
 
-                        let compiler = Compiler {
-                            ctx: self.ctx.clone(),
-                            reader: string.as_slice().chars(),
-                            partials: self.partials.clone(),
-                            otag: "{{".to_string(),
-                            ctag: "}}".to_string(),
-                        };
+                let mut file = match File::open(&path) {
+                    Ok(file) => file,
+                    Err(_) => panic!("error opening file: {:?}", path)
+                };
 
-                        let (tokens, _) = compiler.compile();
-
-                        self.partials.insert(name, tokens);
-                    },
-                    Err(e) => {
-                        // Ignore missing files.
-                        if e.kind == FileNotFound {
-                            debug!("failed to read file {}", path.display());
-                        } else {
-                            panic!("error reading file: {}", e);
-                        }
-                    }
+                if let Err(_) = file.read_to_string(&mut string) {
+                    panic!("error reading file: {:?}", path)
                 }
+
+                let compiler = Compiler {
+                    ctx: self.ctx.clone(),
+                    reader: string.as_slice().chars(),
+                    partials: self.partials.clone(),
+                    otag: "{{".to_string(),
+                    ctag: "}}".to_string(),
+                };
+
+                let (tokens, _) = compiler.compile();
+
+                self.partials.insert(name, tokens);
             }
         }
 

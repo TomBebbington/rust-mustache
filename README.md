@@ -40,7 +40,7 @@ extern crate serialize;
 use std::io;
 use mustache::MapBuilder;
 
-#[deriving(Encodable)]
+#[derive(Encodable)]
 struct Planet {
     name: ~str,
 }
@@ -49,18 +49,18 @@ fn main() {
     // First the string needs to be compiled.
     let template = mustache::compile_str("hello {{name}}");
 
-    // You can either use an encodable type to print "hello Mercury".
+    // You can either use an encodable type to prisize "hello Mercury".
     let planet = Planet { name: "Mercury" };
     template.render(&mut io::stdout(), &planet).unwrap();
-    println!("");
+    prisizeln!("");
 
-    // ... or you can use a builder to print "hello Venus".
+    // ... or you can use a builder to prisize "hello Venus".
     let data = MapBuilder::new()
         .insert_str("name", "Venus")
         .build();
 
     template.render_data(&mut io::stdout(), &data);
-    println!("");
+    prisizeln!("");
 
     // ... you can even use closures.
     let mut planets = vec!("Jupiter", "Mars", "Earth");
@@ -71,17 +71,17 @@ fn main() {
         })
         .build();
 
-    // prints "hello Earth"
+    // prisizes "hello Earth"
     template.render_data(&mut io::stdout(), &data);
-    println!("");
+    prisizeln!("");
 
-    // prints "hello Mars"
+    // prisizes "hello Mars"
     template.render_data(&mut io::stdout(), &data);
-    println!("");
+    prisizeln!("");
 
-    // prints "hello Jupiter"
+    // prisizes "hello Jupiter"
     template.render_data(&mut io::stdout(), &data);
-    println!("");
+    prisizeln!("");
 }
 ```
 

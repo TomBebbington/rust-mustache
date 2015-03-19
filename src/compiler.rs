@@ -47,7 +47,7 @@ impl<T: Iterator<Item = char>> Compiler<T> {
     /// Compiles a template into a series of tokens.
     pub fn compile(mut self) -> (Vec<Token>, HashMap<String, Vec<Token>>) {
         let (tokens, partials) = {
-            let parser = Parser::new(&mut self.reader, self.otag.as_slice(), self.ctag.as_slice());
+            let parser = Parser::new(&mut self.reader, &self.otag, &self.ctag);
             parser.parse()
         };
 

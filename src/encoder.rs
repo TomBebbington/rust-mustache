@@ -20,22 +20,22 @@ impl serialize::Encoder for Encoder {
     type Error = Error;
     fn emit_nil(&mut self) -> EncoderResult { Err(Error::UnsupportedType) }
 
-    fn emit_uint(&mut self, v: usize) -> EncoderResult { self.emit_str(v.to_string().as_slice()) }
-    fn emit_u64(&mut self, v: u64) -> EncoderResult   { self.emit_str(v.to_string().as_slice()) }
-    fn emit_u32(&mut self, v: u32) -> EncoderResult   { self.emit_str(v.to_string().as_slice()) }
-    fn emit_u16(&mut self, v: u16) -> EncoderResult   { self.emit_str(v.to_string().as_slice()) }
-    fn emit_u8(&mut self, v: u8) -> EncoderResult     { self.emit_str(v.to_string().as_slice()) }
+    fn emit_uint(&mut self, v: usize) -> EncoderResult { self.emit_str(&v.to_string()) }
+    fn emit_u64(&mut self, v: u64) -> EncoderResult   { self.emit_str(&v.to_string()) }
+    fn emit_u32(&mut self, v: u32) -> EncoderResult   { self.emit_str(&v.to_string()) }
+    fn emit_u16(&mut self, v: u16) -> EncoderResult   { self.emit_str(&v.to_string()) }
+    fn emit_u8(&mut self, v: u8) -> EncoderResult     { self.emit_str(&v.to_string()) }
 
-    fn emit_int(&mut self, v: isize) -> EncoderResult { self.emit_str(v.to_string().as_slice()) }
-    fn emit_i64(&mut self, v: i64) -> EncoderResult { self.emit_str(v.to_string().as_slice()) }
-    fn emit_i32(&mut self, v: i32) -> EncoderResult { self.emit_str(v.to_string().as_slice()) }
-    fn emit_i16(&mut self, v: i16) -> EncoderResult { self.emit_str(v.to_string().as_slice()) }
-    fn emit_i8(&mut self, v: i8) -> EncoderResult   { self.emit_str(v.to_string().as_slice()) }
+    fn emit_int(&mut self, v: isize) -> EncoderResult { self.emit_str(&v.to_string()) }
+    fn emit_i64(&mut self, v: i64) -> EncoderResult { self.emit_str(&v.to_string()) }
+    fn emit_i32(&mut self, v: i32) -> EncoderResult { self.emit_str(&v.to_string()) }
+    fn emit_i16(&mut self, v: i16) -> EncoderResult { self.emit_str(&v.to_string()) }
+    fn emit_i8(&mut self, v: i8) -> EncoderResult   { self.emit_str(&v.to_string()) }
 
     fn emit_bool(&mut self, v: bool) -> EncoderResult { self.data.push(Data::Bool(v)); Ok(()) }
 
-    fn emit_f64(&mut self, v: f64) -> EncoderResult { self.emit_str(v.to_string().as_slice()) }
-    fn emit_f32(&mut self, v: f32) -> EncoderResult { self.emit_str(v.to_string().as_slice()) }
+    fn emit_f64(&mut self, v: f64) -> EncoderResult { self.emit_str(&v.to_string()) }
+    fn emit_f32(&mut self, v: f32) -> EncoderResult { self.emit_str(&v.to_string()) }
 
     fn emit_char(&mut self, v: char) -> EncoderResult {
         let mut text = String::with_capacity(1);

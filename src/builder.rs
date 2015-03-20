@@ -374,7 +374,7 @@ mod tests {
 
         match data {
             Data::Vec(vs) => {
-                match vs.as_slice() {
+                match &vs {
                     [Data::Fun(ref f)] => {
                         let f = &mut *f.borrow_mut();
                         assert_eq!((*f)("count: ".to_string()), "count: 1".to_string());

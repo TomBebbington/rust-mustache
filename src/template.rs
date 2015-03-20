@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::Write;
 use std::mem;
 use std::str;
 use serialize::Encodable;
@@ -35,7 +36,7 @@ Vec<Token>>) -> Template {
 
 impl Template {
     /// Renders the template with the `Encodable` data.
-    pub fn render<'a, W: Writer, T: Encodable>(
+    pub fn render<'a, W: Write, T: Encodable>(
         &self,
         wr: &mut W,
         data: &T
@@ -45,14 +46,14 @@ impl Template {
     }
 
     /// Renders the template with the `Data`.
-    pub fn render_data<W: Writer>(&self, wr: &mut W, data: &Data) {
+    pub fn render_data<W: Write>(&self, wr: &mut W, data: &Data) {
         let mut render_ctx = RenderContext::new(self);
         let mut stack = vec!(data);
 
         render_ctx.render(
             wr,
             &mut stack,
-            self.tokens.as_slice());
+            &self.tokens);
     }
 }
 
@@ -69,7 +70,7 @@ impl<'a> RenderContext<'a> {
         }
     }
 
-    fn render<'b, W: Writer>(
+    fn render<'b, W: Write>(
         &mut self,
         wr: &mut W,
         stack: &mut Vec<&Data>,
@@ -80,7 +81,7 @@ impl<'a> RenderContext<'a> {
         }
     }
 
-    fn render_token<'b, W: Writer>(
+    fn render_token<'b, W: Write>(
         &mut self,
         wr: &mut W,
         stack: &mut Vec<&Data>,
@@ -88,42 +89,42 @@ impl<'a> RenderContext<'a> {
     ) {
         match *token {
             Token::Text(ref value) => {
-                self.render_text(wr, value.as_slice());
+                self.render_text(wr, &value);
             },
             Token::ETag(ref path, _) => {
-                self.render_etag(wr, stack, path.as_slice());
+                self.render_etag(wr, stack, &path);
             }
             Token::UTag(ref path, _) => {
-                self.render_utag(wr, stack, path.as_slice());
+                self.render_utag(wr, stack, &path);
             }
             Token::Section(ref path, true, ref children, _, _, _, _, _) => {
-                self.render_inverted_section(wr, stack, path.as_slice(), children.as_slice());
+                self.render_inverted_section(wr, stack, &path, &children);
             }
             Token::Section(ref path, false, ref children, ref otag, _, ref src, _, ref ctag) => {
                 self.render_section(
                     wr,
                     stack,
-                    path.as_slice(),
-                    children.as_slice(),
-                    src.as_slice(),
-                    otag.as_slice(),
-                    ctag.as_slice())
+                    path,
+                    children,
+                    src,
+                    otag,
+                    ctag)
             }
             Token::Partial(ref name, ref indent, _) => {
-                self.render_partial(wr, stack, name.as_slice(), indent.as_slice());
+                self.render_partial(wr, stack, &name, &indent);
             }
             _ => { panic!() }
         }
     }
 
-    fn render_text<W: Writer>(
+    fn render_text<W: Write>(
         &mut self,
         wr: &mut W,
         value: &str
     ) {
         // Indent the lines.
-        if self.indent == "" {
-            wr.write_str(value).unwrap();
+        if self.indent.is_empty() {
+            wr.write(value.as_bytes()).unwrap();
         } else {
             let mut pos = 0;
             let len = value.len();
@@ -144,15 +145,15 @@ impl<'a> RenderContext<'a> {
                 };
 
                 if line.char_at(0) != '\n' {
-                    wr.write_str(self.indent.as_slice()).unwrap();
+                    wr.write(self.indent.as_bytes()).unwrap();
                 }
 
-                wr.write_str(line).unwrap();
+                wr.write(line.as_bytes()).unwrap();
             }
         }
     }
 
-    fn render_etag<'b, W: Writer>(
+    fn render_etag<'b, W: Write>(
         &mut self,
         wr: &mut W,
         stack: &mut Vec<&Data>,
@@ -166,17 +167,21 @@ impl<'a> RenderContext<'a> {
 
         for c in s.chars() {
             match c {
-                '<'  => { wr.write_str("&lt;").unwrap(); }
-                '>'  => { wr.write_str("&gt;").unwrap(); }
-                '&'  => { wr.write_str("&amp;").unwrap(); }
-                '"'  => { wr.write_str("&quot;").unwrap(); }
-                '\'' => { wr.write_str("&#39;").unwrap(); }
-                _    => { wr.write_char(c).unwrap(); }
-            }
+                '<'  => { wr.write("&lt;".as_bytes()) }
+                '>'  => { wr.write("&gt;".as_bytes()) }
+                '&'  => { wr.write("&amp;".as_bytes()) }
+                '"'  => { wr.write("&quot;".as_bytes()) }
+                '\'' => { wr.write("&#39;".as_bytes()) }
+                _    => {
+                    let mut text:Vec<u8> = (0..c.len_utf8()).map(|_| 0).collect();
+                    c.encode_utf8(&mut text);
+                    wr.write(&text)
+                }
+            }.unwrap();
         }
     }
 
-    fn render_utag<'b, W: Writer>(
+    fn render_utag<'b, W: Write>(
         &mut self,
         wr: &mut W,
         stack: &mut Vec<&Data>,
@@ -185,11 +190,11 @@ impl<'a> RenderContext<'a> {
         match self.find(path, stack) {
             None => { }
             Some(value) => {
-                wr.write_str(&self.indent).unwrap();
+                wr.write(self.indent.as_bytes()).unwrap();
 
                 match *value {
                     Data::Str(ref value) => {
-                        wr.write_str(&value).unwrap();
+                        wr.write(value.as_bytes()).unwrap();
                     }
 
                     // etags and utags use the default delimiter.
@@ -204,7 +209,7 @@ impl<'a> RenderContext<'a> {
         };
     }
 
-    fn render_inverted_section<'b, W: Writer>(
+    fn render_inverted_section<'b, W: Write>(
         &mut self,
         wr: &mut W,
         stack: &mut Vec<&Data>,
@@ -221,7 +226,7 @@ impl<'a> RenderContext<'a> {
         self.render(wr, stack, children);
     }
 
-    fn render_section<'b, W: Writer>(
+    fn render_section<'b, W: Write>(
         &mut self,
         wr: &mut W,
         stack: &mut Vec<&Data>,
@@ -261,7 +266,7 @@ impl<'a> RenderContext<'a> {
         }
     }
 
-    fn render_partial<'b, W: Writer>(
+    fn render_partial<'b, W: Write>(
         &mut self,
         wr: &mut W,
         stack: &mut Vec<&Data>,
@@ -274,7 +279,7 @@ impl<'a> RenderContext<'a> {
                 let mut indent = format!("{}{}", self.indent, indent);
 
                 mem::swap(&mut self.indent, &mut indent);
-                self.render(wr, stack, tokens.as_slice());
+                self.render(wr, stack, &tokens);
                 mem::swap(&mut self.indent, &mut indent);
             }
         }
@@ -291,7 +296,7 @@ impl<'a> RenderContext<'a> {
 
         let compiler = Compiler::new_with(
             self.template.ctx.clone(),
-            src.as_slice().chars(),
+            src.chars(),
             self.template.partials.clone(),
             otag.to_string(),
             ctag.to_string());

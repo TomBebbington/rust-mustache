@@ -244,7 +244,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
             Some(&Text(ref s)) if !s.is_empty() => {
                 // Look for the last newline character that may have whitespace
                 // following it.
-                match s.as_slice().rfind(|c:char| c == '\n' || !c.is_whitespace()) {
+                match s.rfind(|c:char| c == '\n' || !c.is_whitespace()) {
                     // It's all whitespace.
                     None => {
                         if self.tokens.len() == 1 {
@@ -254,7 +254,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                         }
                     }
                     Some(pos) => {
-                        if s.as_slice().char_at(pos) == '\n' {
+                        if s.char_at(pos) == '\n' {
                             if pos == s.len() - 1 {
                                 StandAlone
                             } else {
@@ -285,7 +285,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
 
                 // Trim the whitespace from the last token.
                 self.tokens.pop();
-                self.tokens.push(Text(s.as_slice().slice(0, pos).to_string()));
+                self.tokens.push(Text(s.slice(0, pos).to_string()));
 
                 true
             }
@@ -300,7 +300,6 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
         let mut content = String::new();
         mem::swap(&mut content, &mut self.content);
         let len = content.len();
-        let content = content.as_slice();
 
         match content.char_at(0) {
             '!' => {
@@ -310,7 +309,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
             '&' => {
                 let name = content.slice(1, len);
                 let name = self.check_content(name);
-                let name = name.as_slice().split_terminator('.')
+                let name = name.split_terminator('.')
                     .map(|x| x.to_string())
                     .collect();
                 self.tokens.push(UTag(name, tag));
@@ -319,7 +318,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                 if content.ends_with("}") {
                     let name = content.slice(1, len - 1);
                     let name = self.check_content(name);
-                    let name = name.as_slice().split_terminator('.')
+                    let name = name.split_terminator('.')
                         .map(|x| x.to_string())
                         .collect();
                     self.tokens.push(UTag(name, tag));
@@ -329,7 +328,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                 let newlined = self.eat_whitespace();
 
                 let name = self.check_content(content.slice(1, len));
-                let name = name.as_slice().split_terminator('.')
+                let name = name.split_terminator('.')
                     .map(|x| x.to_string())
                     .collect();
                 self.tokens.push(IncompleteSection(name, false, tag, newlined));
@@ -338,7 +337,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                 let newlined = self.eat_whitespace();
 
                 let name = self.check_content(content.slice(1, len));
-                let name = name.as_slice().split_terminator('.')
+                let name = name.split_terminator('.')
                     .map(|x| x.to_string())
                     .collect();
                 self.tokens.push(IncompleteSection(name, true, tag, newlined));
@@ -347,7 +346,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                 self.eat_whitespace();
 
                 let name = self.check_content(content.slice(1, len));
-                let name = name.as_slice().split_terminator('.')
+                let name = name.split_terminator('.')
                     .map(|x| x.to_string())
                     .collect();
                 let mut children: Vec<Token> = Vec::new();
@@ -388,7 +387,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                                 // case the user uses a function to instantiate the
                                 // tag.
                                 let mut src = String::new();
-                                for s in srcs.iter() { src.push_str(s.as_slice()); }
+                                for s in srcs.iter() { src.push_str(&s); }
 
                                 self.tokens.push(
                                     Section(
@@ -413,14 +412,14 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                     }
                 }
             }
-            '>' => { self.add_partial(content, tag); }
+            '>' => { self.add_partial(&content, tag); }
             '=' => {
                 self.eat_whitespace();
 
                 if len > 2 && content.ends_with("=") {
                     let s = self.check_content(content.slice(1, len - 1));
 
-                    let pos = s.as_slice().find(|c| {
+                    let pos = s.find(|c| {
                         let mut text = String::with_capacity(1);
                         text.push(c);
                         text.is_whitespace()
@@ -430,10 +429,10 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                       Some(pos) => { pos }
                     };
 
-                    self.otag = s.as_slice().slice(0, pos).to_string();
-                    self.otag_chars = self.otag.as_slice().chars().collect();
+                    self.otag = s.slice(0, pos).to_string();
+                    self.otag_chars = self.otag.chars().collect();
 
-                    let s2 = s.as_slice().slice_from(pos);
+                    let s2 = s.slice_from(pos);
                     let pos = s2.find(|c: char| !c.is_whitespace());
                     let pos = match pos {
                       None => { panic!("invalid change delimiter tag content"); }
@@ -441,7 +440,7 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                     };
 
                     self.ctag = s2.slice_from(pos).to_string();
-                    self.ctag_chars = self.ctag.as_slice().chars().collect();
+                    self.ctag_chars = self.ctag.chars().collect();
                 } else {
                     panic!("invalid change delimiter tag content");
                 }
@@ -449,11 +448,11 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
             _ => {
                 // If the name is "." then we want the top element, which we represent with
                 // an empty name.
-                let name = self.check_content(content);
-                let name = if name.as_slice() == "." {
+                let name = self.check_content(&content);
+                let name = if name == "." {
                     Vec::new()
                 } else {
-                    name.as_slice().split_terminator('.')
+                    name.split_terminator('.')
                         .map(|x| x.to_string())
                         .collect()
                 };
@@ -475,11 +474,11 @@ impl<'a, T: Iterator<Item=char>> Parser<'a, T> {
                 if self.ch_is('\r') { self.bump(); }
                 self.bump();
 
-                let ws = s.as_slice().slice(pos, s.len());
+                let ws = s.slice(pos, s.len());
 
                 // Trim the whitespace from the last token.
                 self.tokens.pop();
-                self.tokens.push(Text(s.as_slice().slice(0, pos).to_string()));
+                self.tokens.push(Text(s.slice(0, pos).to_string()));
 
                 ws.to_string()
             }

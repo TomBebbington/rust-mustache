@@ -72,7 +72,7 @@ impl<T: Iterator<Item = char>> Compiler<T> {
 
                 let compiler = Compiler {
                     ctx: self.ctx.clone(),
-                    reader: string.as_slice().chars(),
+                    reader: string.chars(),
                     partials: self.partials.clone(),
                     otag: "{{".to_string(),
                     ctag: "}}".to_string(),

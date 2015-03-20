@@ -16,6 +16,8 @@ pub use encoder::{Encoder, EncoderResult};
 pub use error::Error;
 pub use template::Template;
 
+use std::path::Path;
+
 pub mod builder;
 mod data;
 mod encoder;
@@ -27,13 +29,13 @@ mod template;
 
 /// Compiles a template from an `Iterator<char>`.
 pub fn compile_iter<T: Iterator<Item=char>>(iter: T) -> Template {
-    Context::new(Path::new(".")).compile(iter)
+    Context::new(".").compile(iter)
 }
 
 /// Compiles a template from a path.
 /// returns None if the file cannot be read OR the file is not UTF-8 encoded
-pub fn compile_path(path: Path) -> Result<Template, Error> {
-    Context::new(Path::new(".")).compile_path(path)
+pub fn compile_path(path: &Path) -> Result<Template, Error> {
+    Context::new(".").compile_path(path)
 }
 
 /// Compiles a template from a string.

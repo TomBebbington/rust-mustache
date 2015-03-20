@@ -8,3 +8,6 @@ repository = "https://github.com/erickt/rust-mustache"
 
 [lib]
 name = "mustache"
+
+[dependenices]
+rustc-serialize = "*"
